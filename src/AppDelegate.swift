@@ -13,9 +13,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var previewTextView: NSTextView!
 
     var markdownSwitch: NSSwitch!
+    var centerSwitch: NSSwitch!
     var bodyContainer: NSView!
 
     let topBarHeight: CGFloat = 32
+
+    var isCentered = false
+    let pageWidth: CGFloat = 1000
+    let centerMinMargin: CGFloat = 24
+
+    let editBaseInset = NSSize(width: 20, height: 20)
+    let previewBaseInset = NSSize(width: 32, height: 24)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         registerBundledFonts()
@@ -89,6 +97,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.contentView = container
         window.center()
         window.makeKeyAndOrderFront(nil)
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowDidResize(_:)),
+            name: NSWindow.didResizeNotification,
+            object: window
+        )
     }
 
     private func makeTopBar(width: CGFloat, containerHeight: CGFloat) -> NSView {
@@ -96,34 +111,64 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         topBar.autoresizingMask = [.width, .minYMargin]
         topBar.autoresizesSubviews = true
 
-        let toggle = NSSwitch()
-        toggle.frame.size = toggle.intrinsicContentSize
-        toggle.target = self
-        toggle.action = #selector(toggleMarkdownPreview(_:))
-        self.markdownSwitch = toggle
-
-        let label = NSTextField(labelWithString: "Markdown")
-        label.font = NSFont.systemFont(ofSize: 11)
-        label.textColor = .secondaryLabelColor
-        label.sizeToFit()
-
         let margin: CGFloat = 16
         let spacing: CGFloat = 6
+        let groupSpacing: CGFloat = 18
 
-        toggle.frame.origin = NSPoint(
-            x: width - margin - toggle.frame.width,
-            y: (topBarHeight - toggle.frame.height) / 2
+        func makeToggleGroup(title: String, action: Selector) -> (NSSwitch, NSTextField) {
+            let toggle = NSSwitch()
+            toggle.frame.size = toggle.intrinsicContentSize
+            toggle.target = self
+            toggle.action = action
+
+            let label = NSTextField(labelWithString: title)
+            label.font = NSFont.systemFont(ofSize: 11)
+            label.textColor = .secondaryLabelColor
+            label.sizeToFit()
+
+            return (toggle, label)
+        }
+
+        let (markdownToggle, markdownLabel) = makeToggleGroup(
+            title: "Markdown",
+            action: #selector(toggleMarkdownPreview(_:))
         )
-        toggle.autoresizingMask = [.minXMargin]
+        self.markdownSwitch = markdownToggle
 
-        label.frame.origin = NSPoint(
-            x: toggle.frame.minX - spacing - label.frame.width,
-            y: (topBarHeight - label.frame.height) / 2
+        markdownToggle.frame.origin = NSPoint(
+            x: width - margin - markdownToggle.frame.width,
+            y: (topBarHeight - markdownToggle.frame.height) / 2
         )
-        label.autoresizingMask = [.minXMargin]
+        markdownToggle.autoresizingMask = [.minXMargin]
 
-        topBar.addSubview(label)
-        topBar.addSubview(toggle)
+        markdownLabel.frame.origin = NSPoint(
+            x: markdownToggle.frame.minX - spacing - markdownLabel.frame.width,
+            y: (topBarHeight - markdownLabel.frame.height) / 2
+        )
+        markdownLabel.autoresizingMask = [.minXMargin]
+
+        let (centerToggle, centerLabel) = makeToggleGroup(
+            title: "Center",
+            action: #selector(toggleCenteredLayout(_:))
+        )
+        self.centerSwitch = centerToggle
+
+        centerToggle.frame.origin = NSPoint(
+            x: markdownLabel.frame.minX - groupSpacing - centerToggle.frame.width,
+            y: (topBarHeight - centerToggle.frame.height) / 2
+        )
+        centerToggle.autoresizingMask = [.minXMargin]
+
+        centerLabel.frame.origin = NSPoint(
+            x: centerToggle.frame.minX - spacing - centerLabel.frame.width,
+            y: (topBarHeight - centerLabel.frame.height) / 2
+        )
+        centerLabel.autoresizingMask = [.minXMargin]
+
+        topBar.addSubview(markdownLabel)
+        topBar.addSubview(markdownToggle)
+        topBar.addSubview(centerLabel)
+        topBar.addSubview(centerToggle)
 
         return topBar
     }
@@ -136,7 +181,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let textView = NSTextView(frame: scrollView.bounds)
         textView.isRichText = false
         textView.font = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
-        textView.textContainerInset = NSSize(width: 20, height: 20)
+        textView.textContainerInset = editBaseInset
         textView.string = defaults.string(forKey: key) ?? ""
         textView.autoresizingMask = [.width, .height]
         textView.isVerticallyResizable = true
@@ -171,7 +216,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         textView.isEditable = false
         textView.isSelectable = true
         textView.drawsBackground = true
-        textView.textContainerInset = NSSize(width: 32, height: 24)
+        textView.textContainerInset = previewBaseInset
         textView.autoresizingMask = [.width, .height]
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = true
@@ -198,6 +243,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             editScrollView.frame = bodyContainer.bounds
             bodyContainer.addSubview(editScrollView)
             window.makeFirstResponder(textView)
+        }
+        updateCenteringInsets()
+    }
+
+    @objc func toggleCenteredLayout(_ sender: NSSwitch) {
+        isCentered = sender.state == .on
+        updateCenteringInsets()
+    }
+
+    @objc func windowDidResize(_ notification: Notification) {
+        guard isCentered else { return }
+        updateCenteringInsets()
+    }
+
+    private func updateCenteringInsets() {
+        applyCentering(to: textView, baseInset: editBaseInset)
+        applyCentering(to: previewTextView, baseInset: previewBaseInset)
+    }
+
+    private func applyCentering(to textView: NSTextView, baseInset: NSSize) {
+        guard let clipWidth = textView.enclosingScrollView?.contentView.bounds.width, clipWidth > 0 else { return }
+
+        if isCentered {
+            let inset = max((clipWidth - pageWidth) / 2, centerMinMargin)
+            textView.textContainerInset = NSSize(width: inset, height: baseInset.height)
+        } else {
+            textView.textContainerInset = baseInset
         }
     }
 
