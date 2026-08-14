@@ -8,6 +8,8 @@ automatically as you type, so there's nothing to name and nothing to save.
 It's meant to stay open in its own Space as a permanent, always-available
 scratchpad.
 
+![Scratchpad](docs/images/Screenshot.png)
+
 ## Features
 
 - **Autosave** — every keystroke is persisted immediately (via
