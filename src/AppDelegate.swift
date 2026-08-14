@@ -107,7 +107,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.title = "Scratchpad"
         window.contentView = container
         window.center()
+        window.collectionBehavior.insert(.fullScreenPrimary)
         window.makeKeyAndOrderFront(nil)
+        window.toggleFullScreen(nil)
 
         NotificationCenter.default.addObserver(
             self,
