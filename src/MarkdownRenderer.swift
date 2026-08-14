@@ -5,13 +5,13 @@ enum MarkdownRenderer {
         let result = NSMutableAttributedString()
         let lines = markdown.components(separatedBy: "\n")
         var i = 0
-        var paragraphBuffer: [String] = []
+        var paragraphBuffer: [(indent: Int, text: String)] = []
 
         func flushParagraph() {
             guard !paragraphBuffer.isEmpty else { return }
-            let text = paragraphBuffer.joined(separator: " ")
+            let lines = paragraphBuffer
             paragraphBuffer.removeAll()
-            appendParagraph(text, to: result, baseSize: baseSize)
+            appendParagraph(lines, to: result, baseSize: baseSize)
         }
 
         while i < lines.count {
@@ -67,10 +67,10 @@ enum MarkdownRenderer {
 
             if let firstItem = unorderedListItem(trimmed) {
                 flushParagraph()
-                var items = [firstItem]
+                var items = [(indent: leadingSpaceCount(rawLine), text: firstItem)]
                 i += 1
                 while i < lines.count, let item = unorderedListItem(lines[i].trimmingCharacters(in: .whitespaces)) {
-                    items.append(item)
+                    items.append((indent: leadingSpaceCount(lines[i]), text: item))
                     i += 1
                 }
                 appendUnorderedList(items, to: result, baseSize: baseSize)
@@ -79,17 +79,17 @@ enum MarkdownRenderer {
 
             if let firstItem = orderedListItem(trimmed) {
                 flushParagraph()
-                var items = [firstItem]
+                var items = [(indent: leadingSpaceCount(rawLine), number: firstItem.0, text: firstItem.1)]
                 i += 1
                 while i < lines.count, let item = orderedListItem(lines[i].trimmingCharacters(in: .whitespaces)) {
-                    items.append(item)
+                    items.append((indent: leadingSpaceCount(lines[i]), number: item.0, text: item.1))
                     i += 1
                 }
                 appendOrderedList(items, to: result, baseSize: baseSize)
                 continue
             }
 
-            paragraphBuffer.append(trimmed)
+            paragraphBuffer.append((indent: leadingSpaceCount(rawLine), text: trimmed))
             i += 1
         }
         flushParagraph()
@@ -98,6 +98,16 @@ enum MarkdownRenderer {
     }
 
     // MARK: - Block detection
+
+    private static func leadingSpaceCount(_ line: String) -> Int {
+        var count = 0
+        for ch in line {
+            if ch == " " { count += 1 }
+            else if ch == "\t" { count += 4 }
+            else { break }
+        }
+        return count
+    }
 
     private static func headingLevel(_ line: String) -> Int? {
         guard line.hasPrefix("#") else { return nil }
@@ -139,16 +149,23 @@ enum MarkdownRenderer {
 
     // MARK: - Block rendering
 
-    private static func appendParagraph(_ text: String, to result: NSMutableAttributedString, baseSize: CGFloat) {
+    private static func appendParagraph(_ lines: [(indent: Int, text: String)], to result: NSMutableAttributedString, baseSize: CGFloat) {
         let font = PlexSerif.font(size: baseSize)
-        let style = NSMutableParagraphStyle()
-        style.lineSpacing = 4
-        style.paragraphSpacing = baseSize * 0.9
+        for (idx, entry) in lines.enumerated() {
+            let extra = CGFloat(entry.indent) * 7
+            let style = NSMutableParagraphStyle()
+            style.lineSpacing = 4
+            style.headIndent = extra
+            style.firstLineHeadIndent = extra
+            if idx == lines.count - 1 {
+                style.paragraphSpacing = baseSize * 0.9
+            }
 
-        let attr = inlineAttributedString(text, font: font, color: .textColor)
-        attr.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: attr.length))
-        result.append(attr)
-        result.append(NSAttributedString(string: "\n"))
+            let lineAttr = inlineAttributedString(entry.text, font: font, color: .textColor)
+            lineAttr.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: lineAttr.length))
+            result.append(lineAttr)
+            result.append(NSAttributedString(string: "\n"))
+        }
     }
 
     private static func appendHeading(_ text: String, level: Int, to result: NSMutableAttributedString, baseSize: CGFloat) {
@@ -213,12 +230,13 @@ enum MarkdownRenderer {
         result.append(line)
     }
 
-    private static func appendUnorderedList(_ items: [String], to result: NSMutableAttributedString, baseSize: CGFloat) {
+    private static func appendUnorderedList(_ items: [(indent: Int, text: String)], to result: NSMutableAttributedString, baseSize: CGFloat) {
         let font = PlexSerif.font(size: baseSize)
-        for item in items {
+        for (indent, item) in items {
+            let extra = CGFloat(indent) * 7
             let style = NSMutableParagraphStyle()
-            style.headIndent = 20
-            style.firstLineHeadIndent = 0
+            style.headIndent = 20 + extra
+            style.firstLineHeadIndent = extra
             style.paragraphSpacing = baseSize * 0.3
 
             let line = NSMutableAttributedString(
@@ -233,12 +251,13 @@ enum MarkdownRenderer {
         result.append(NSAttributedString(string: "\n"))
     }
 
-    private static func appendOrderedList(_ items: [(Int, String)], to result: NSMutableAttributedString, baseSize: CGFloat) {
+    private static func appendOrderedList(_ items: [(indent: Int, number: Int, text: String)], to result: NSMutableAttributedString, baseSize: CGFloat) {
         let font = PlexSerif.font(size: baseSize)
-        for (number, text) in items {
+        for (indent, number, text) in items {
+            let extra = CGFloat(indent) * 7
             let style = NSMutableParagraphStyle()
-            style.headIndent = 24
-            style.firstLineHeadIndent = 0
+            style.headIndent = 24 + extra
+            style.firstLineHeadIndent = extra
             style.paragraphSpacing = baseSize * 0.3
 
             let line = NSMutableAttributedString(
