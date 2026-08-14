@@ -68,4 +68,4 @@ Makefile                   # `make build` / `make install` targets
 ```
 
 ## License
-Code released under the MIT License.
+Code released under the GNU GENERAL PUBLIC License.
