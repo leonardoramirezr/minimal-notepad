@@ -1,6 +1,84 @@
 import AppKit
 import Foundation
 
+class LineMovableTextView: NSTextView {
+    override func keyDown(with event: NSEvent) {
+        let modifiers = event.modifierFlags
+        if modifiers.contains(.option), modifiers.isDisjoint(with: [.shift, .command, .control]),
+            event.keyCode == 126 || event.keyCode == 125
+        {
+            moveLine(up: event.keyCode == 126)
+            return
+        }
+        super.keyDown(with: event)
+    }
+
+    private func splitTerminator(_ text: String) -> (content: String, terminator: String) {
+        for term in ["\r\n", "\n", "\r"] {
+            if text.hasSuffix(term) {
+                return (String(text.dropLast(term.count)), term)
+            }
+        }
+        return (text, "")
+    }
+
+    private func moveLine(up: Bool) {
+        guard let textStorage = self.textStorage else { return }
+        let nsString = textStorage.string as NSString
+        let selectedRange = self.selectedRange()
+        let lineRange = nsString.lineRange(for: selectedRange)
+
+        if up {
+            guard lineRange.location > 0 else {
+                NSSound.beep()
+                return
+            }
+            let prevLineRange = nsString.lineRange(for: NSRange(location: lineRange.location - 1, length: 0))
+            let (prevContent, prevTerm) = splitTerminator(nsString.substring(with: prevLineRange))
+            let (curContent, curTerm) = splitTerminator(nsString.substring(with: lineRange))
+            let newBlock = curContent + prevTerm + prevContent + curTerm
+            let combinedRange = NSRange(
+                location: prevLineRange.location,
+                length: prevLineRange.length + lineRange.length
+            )
+
+            guard shouldChangeText(in: combinedRange, replacementString: newBlock) else { return }
+            textStorage.replaceCharacters(in: combinedRange, with: newBlock)
+            didChangeText()
+
+            let offsetInLine = selectedRange.location - lineRange.location
+            let newRange = NSRange(location: prevLineRange.location + offsetInLine, length: selectedRange.length)
+            setSelectedRange(newRange)
+            scrollRangeToVisible(newRange)
+        } else {
+            guard lineRange.location + lineRange.length < nsString.length else {
+                NSSound.beep()
+                return
+            }
+            let nextLineRange = nsString.lineRange(
+                for: NSRange(location: lineRange.location + lineRange.length, length: 0)
+            )
+            let (curContent, curTerm) = splitTerminator(nsString.substring(with: lineRange))
+            let (nextContent, nextTerm) = splitTerminator(nsString.substring(with: nextLineRange))
+            let newBlock = nextContent + curTerm + curContent + nextTerm
+            let combinedRange = NSRange(
+                location: lineRange.location,
+                length: lineRange.length + nextLineRange.length
+            )
+
+            guard shouldChangeText(in: combinedRange, replacementString: newBlock) else { return }
+            textStorage.replaceCharacters(in: combinedRange, with: newBlock)
+            didChangeText()
+
+            let offsetInLine = selectedRange.location - lineRange.location
+            let prefixLength = (nextContent as NSString).length + (curTerm as NSString).length
+            let newRange = NSRange(location: lineRange.location + prefixLength + offsetInLine, length: selectedRange.length)
+            setSelectedRange(newRange)
+            scrollRangeToVisible(newRange)
+        }
+    }
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
     let defaults = UserDefaults.standard
@@ -191,7 +269,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         scrollView.hasVerticalScroller = true
         scrollView.autoresizingMask = [.width, .height]
 
-        let textView = NSTextView(frame: scrollView.bounds)
+        let textView = LineMovableTextView(frame: scrollView.bounds)
         textView.isRichText = false
         textView.font = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
         textView.textContainerInset = editBaseInset
