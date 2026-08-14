@@ -65,6 +65,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             keyEquivalent: "q"
         )
 
+        let fileMenuItem = NSMenuItem()
+        mainMenu.addItem(fileMenuItem)
+        let fileMenu = NSMenu(title: "File")
+        fileMenuItem.submenu = fileMenu
+
+        fileMenu.addItem(
+            withTitle: "Close Window",
+            action: #selector(NSWindow.performClose(_:)),
+            keyEquivalent: "w"
+        )
+
         let editMenuItem = NSMenuItem()
         mainMenu.addItem(editMenuItem)
         let editMenu = NSMenu(title: "Edit")
