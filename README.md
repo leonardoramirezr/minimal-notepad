@@ -1,5 +1,9 @@
 # Scratchpad
 
+<p align="center">
+<img src="Resources/Icon/AppIcon.svg" width="96" height="96" alt="Scratchpad app icon">
+</p>
+
 A minimal, distraction-free notepad for macOS. Built with plain AppKit — no
 Xcode project, no dependencies, just Swift and system frameworks.
 
@@ -64,6 +68,7 @@ src/
   MarkdownRenderer.swift   # Custom Markdown → NSAttributedString renderer
   Fonts.swift              # Bundled font registration (IBM Plex Serif)
 Resources/Fonts/           # Bundled .ttf font files
+Resources/Icon/            # Source app icon
 Info.plist                 # App bundle metadata
 build.sh                   # Compiles and packages the .app bundle
 Makefile                   # `make build` / `make install` targets
