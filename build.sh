@@ -20,6 +20,7 @@ xcrun swiftc \
 
 cp Info.plist "${APP_BUNDLE}/Contents/Info.plist"
 cp Resources/Fonts/*.ttf "${APP_BUNDLE}/Contents/Resources/Fonts/"
+cp Resources/Icon/AppIcon.icns "${APP_BUNDLE}/Contents/Resources/AppIcon.icns"
 
 echo "Firmando app..."
 codesign --force --deep --sign - "${APP_BUNDLE}"
