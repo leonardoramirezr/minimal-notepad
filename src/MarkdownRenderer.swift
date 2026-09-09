@@ -170,7 +170,8 @@ enum MarkdownRenderer {
 
     private static func appendHeading(_ text: String, level: Int, to result: NSMutableAttributedString, baseSize: CGFloat) {
         let sizes: [Int: CGFloat] = [1: 28, 2: 24, 3: 20, 4: 17, 5: 15, 6: 14]
-        let size = sizes[level] ?? baseSize
+        // Headings scale with the configured body size (15 is the reference).
+        let size = (sizes[level] ?? baseSize) * (baseSize / 15)
         let font = PlexSerif.font(size: size, bold: true)
 
         let style = NSMutableParagraphStyle()

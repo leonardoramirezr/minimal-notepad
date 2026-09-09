@@ -31,6 +31,10 @@ scratchpad.
 - **Bundled typography** — ships with IBM Plex Serif (regular, italic,
   bold, bold italic) for Markdown preview rendering, registered at launch
   so no system installation is required.
+- **Adjustable font size** — `Scratchpad ▸ Settings…` (`⌘,`) opens a settings
+  window with a slider that changes the text size (10–32 pt) live, for both
+  the editor and the Markdown preview; the choice is remembered between
+  launches.
 - **Launches full-screen** — opens maximized/full-screen by default to get
   out of your way immediately.
 - **Tiny footprint** — a single-window AppKit app with no external
@@ -67,6 +71,7 @@ src/
   AppDelegate.swift        # Window, UI layout, and app lifecycle
   MarkdownRenderer.swift   # Custom Markdown → NSAttributedString renderer
   Fonts.swift              # Bundled font registration (IBM Plex Serif)
+  SettingsWindowController.swift  # Settings window (font size slider)
 Resources/Fonts/           # Bundled .ttf font files
 Resources/Icon/            # Source app icon
 Info.plist                 # App bundle metadata
