@@ -103,8 +103,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let editBaseInset = NSSize(width: 20, height: 20)
     let previewBaseInset = NSSize(width: 32, height: 24)
 
+    let fontSizeKey = "editorFontSize"
+    var fontSize = SettingsWindowController.defaultFontSize
+    var settingsWindowController: SettingsWindowController?
+
+    /// The Markdown preview reads one point larger than the editor,
+    /// keeping the proportion the app shipped with.
+    var previewBaseSize: CGFloat { fontSize + 1 }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         registerBundledFonts()
+        fontSize = storedFontSize()
 
         let windowWidth: CGFloat = 600
         let windowHeight: CGFloat = 432
@@ -130,6 +139,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         mainMenu.addItem(appMenuItem)
         let appMenu = NSMenu()
         appMenuItem.submenu = appMenu
+
+        let settingsItem = NSMenuItem(
+            title: "Settings…",
+            action: #selector(openSettings(_:)),
+            keyEquivalent: ","
+        )
+        settingsItem.target = self
+        appMenu.addItem(settingsItem)
+        appMenu.addItem(NSMenuItem.separator())
+
         let servicesMenu = NSMenu()
         let servicesItem = NSMenuItem(title: "Services", action: nil, keyEquivalent: "")
         servicesItem.submenu = servicesMenu
@@ -271,7 +290,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let textView = LineMovableTextView(frame: scrollView.bounds)
         textView.isRichText = false
-        textView.font = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
+        textView.font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
         textView.textContainerInset = editBaseInset
         textView.string = defaults.string(forKey: key) ?? ""
         textView.autoresizingMask = [.width, .height]
@@ -324,7 +343,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func toggleMarkdownPreview(_ sender: NSSwitch) {
         if sender.state == .on {
             previewTextView.textStorage?.setAttributedString(
-                MarkdownRenderer.render(textView.string)
+                MarkdownRenderer.render(textView.string, baseSize: previewBaseSize)
             )
             editScrollView.removeFromSuperview()
             previewScrollView.frame = bodyContainer.bounds
@@ -361,6 +380,47 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             textView.textContainerInset = NSSize(width: inset, height: baseInset.height)
         } else {
             textView.textContainerInset = baseInset
+        }
+    }
+
+    // MARK: - Settings
+
+    @objc func openSettings(_ sender: Any?) {
+        let controller: SettingsWindowController
+        if let existing = settingsWindowController {
+            controller = existing
+        } else {
+            controller = SettingsWindowController(fontSize: fontSize)
+            controller.onFontSizeChange = { [weak self] size in
+                self?.applyFontSize(size)
+            }
+            settingsWindowController = controller
+        }
+
+        controller.showFontSize(fontSize)
+        if controller.window?.isVisible != true {
+            controller.window?.center()
+        }
+        controller.showWindow(nil)
+        NSApplication.shared.activate(ignoringOtherApps: true)
+    }
+
+    private func storedFontSize() -> CGFloat {
+        let stored = CGFloat(defaults.double(forKey: fontSizeKey))
+        guard stored > 0 else { return SettingsWindowController.defaultFontSize }
+        return min(max(stored, SettingsWindowController.minFontSize), SettingsWindowController.maxFontSize)
+    }
+
+    private func applyFontSize(_ size: CGFloat) {
+        guard size != fontSize else { return }
+        fontSize = size
+        defaults.set(Double(size), forKey: fontSizeKey)
+
+        textView.font = NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
+        if markdownSwitch.state == .on {
+            previewTextView.textStorage?.setAttributedString(
+                MarkdownRenderer.render(textView.string, baseSize: previewBaseSize)
+            )
         }
     }
 
