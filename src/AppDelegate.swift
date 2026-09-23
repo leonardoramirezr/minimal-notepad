@@ -79,10 +79,18 @@ class LineMovableTextView: NSTextView {
     }
 }
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSSplitViewDelegate, NSMenuItemValidation {
     var window: NSWindow!
     let defaults = UserDefaults.standard
     let key = "scratchText"
+
+    /// Holds the optional LLM Responds panel on the left and the editor on the right.
+    var splitView: NSSplitView!
+    var llmPanel: LLMRespondsView?
+    let llmPanelWidthKey = "llmPanelWidth"
+    let minEditorWidth: CGFloat = 320
+
+    var isLLMPanelVisible: Bool { llmPanel?.superview != nil }
 
     var editScrollView: NSScrollView!
     var textView: NSTextView!
@@ -132,6 +140,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         setUpEditView(in: body)
         setUpPreviewView()
+
+        let splitView = NSSplitView(frame: container.frame)
+        splitView.isVertical = true
+        splitView.dividerStyle = .thin
+        splitView.delegate = self
+        splitView.addSubview(container)
+        self.splitView = splitView
+
+        // A single-window app: keeps AppKit from adding tab items to the View menu.
+        NSWindow.allowsAutomaticWindowTabbing = false
 
         let mainMenu = NSMenu()
 
@@ -193,6 +211,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         editMenu.addItem(NSMenuItem.separator())
         editMenu.addItem(withTitle: "Select All", action: Selector(("selectAll:")), keyEquivalent: "a")
 
+        let viewMenuItem = NSMenuItem()
+        mainMenu.addItem(viewMenuItem)
+        let viewMenu = NSMenu(title: "View")
+        viewMenuItem.submenu = viewMenu
+
+        let llmPanelItem = NSMenuItem(
+            title: "Show LLM Responds",
+            action: #selector(toggleLLMPanel(_:)),
+            keyEquivalent: "L"
+        )
+        llmPanelItem.target = self
+        viewMenu.addItem(llmPanelItem)
+        viewMenu.addItem(NSMenuItem.separator())
+
+        let respondItem = NSMenuItem(
+            title: "Get Response",
+            action: #selector(requestLLMResponse(_:)),
+            keyEquivalent: "\r"
+        )
+        respondItem.target = self
+        viewMenu.addItem(respondItem)
+
+        let stopItem = NSMenuItem(
+            title: "Stop Response",
+            action: #selector(stopLLMResponse(_:)),
+            keyEquivalent: "."
+        )
+        stopItem.target = self
+        viewMenu.addItem(stopItem)
+
         NSApplication.shared.mainMenu = mainMenu
 
         window = NSWindow(
@@ -202,7 +250,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             defer: false
         )
         window.title = "Scratchpad"
-        window.contentView = container
+        window.contentView = splitView
         window.center()
         window.collectionBehavior.insert(.fullScreenPrimary)
         window.makeKeyAndOrderFront(nil)
@@ -422,6 +470,114 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 MarkdownRenderer.render(textView.string, baseSize: previewBaseSize)
             )
         }
+        llmPanel?.fontSize = size
+    }
+
+    // MARK: - LLM Responds
+
+    @objc func toggleLLMPanel(_ sender: Any?) {
+        if isLLMPanelVisible {
+            hideLLMPanel()
+        } else {
+            showLLMPanel()
+        }
+    }
+
+    @objc func requestLLMResponse(_ sender: Any?) {
+        if !isLLMPanelVisible {
+            showLLMPanel()
+        }
+        llmPanel?.respond()
+    }
+
+    @objc func stopLLMResponse(_ sender: Any?) {
+        llmPanel?.stop()
+    }
+
+    private func showLLMPanel() {
+        let panel = llmPanel ?? makeLLMPanel()
+        let storedWidth = CGFloat(defaults.double(forKey: llmPanelWidthKey))
+        let preferredWidth = storedWidth > 0 ? storedWidth : LLMRespondsView.defaultWidth
+        let width = min(max(preferredWidth, LLMRespondsView.minWidth), maxLLMPanelWidth)
+
+        panel.frame = NSRect(x: 0, y: 0, width: width, height: splitView.bounds.height)
+        splitView.insertArrangedSubview(panel, at: 0)
+        splitView.adjustSubviews()
+        splitView.setPosition(width, ofDividerAt: 0)
+        updateCenteringInsets()
+        panel.focusMissingInput()
+    }
+
+    private func hideLLMPanel() {
+        guard let panel = llmPanel else { return }
+        saveLLMPanelState()
+        if let responder = window.firstResponder as? NSView, responder.isDescendant(of: panel) {
+            window.makeFirstResponder(markdownSwitch.state == .on ? previewTextView : textView)
+        }
+        panel.removeFromSuperview()
+        splitView.adjustSubviews()
+        updateCenteringInsets()
+    }
+
+    private func makeLLMPanel() -> LLMRespondsView {
+        let panel = LLMRespondsView(fontSize: fontSize)
+        panel.noteProvider = { [weak self] in
+            self?.textView.string ?? ""
+        }
+        llmPanel = panel
+        return panel
+    }
+
+    private func saveLLMPanelState() {
+        guard let panel = llmPanel else { return }
+        panel.commitConnectionFields()
+        if isLLMPanelVisible {
+            defaults.set(Double(panel.frame.width), forKey: llmPanelWidthKey)
+        }
+    }
+
+    private var maxLLMPanelWidth: CGFloat {
+        max(min(LLMRespondsView.maxWidth, splitView.bounds.width - minEditorWidth), LLMRespondsView.minWidth)
+    }
+
+    func splitView(
+        _ splitView: NSSplitView,
+        constrainMinCoordinate proposedMinimumPosition: CGFloat,
+        ofSubviewAt dividerIndex: Int
+    ) -> CGFloat {
+        max(proposedMinimumPosition, LLMRespondsView.minWidth)
+    }
+
+    func splitView(
+        _ splitView: NSSplitView,
+        constrainMaxCoordinate proposedMaximumPosition: CGFloat,
+        ofSubviewAt dividerIndex: Int
+    ) -> CGFloat {
+        min(proposedMaximumPosition, maxLLMPanelWidth)
+    }
+
+    /// When the window resizes, the editor takes up the difference and the panel keeps its width.
+    func splitView(_ splitView: NSSplitView, shouldAdjustSizeOfSubview view: NSView) -> Bool {
+        view !== llmPanel
+    }
+
+    func splitViewDidResizeSubviews(_ notification: Notification) {
+        guard isCentered else { return }
+        updateCenteringInsets()
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        switch menuItem.action {
+        case #selector(toggleLLMPanel(_:)):
+            menuItem.title = isLLMPanelVisible ? "Hide LLM Responds" : "Show LLM Responds"
+            return true
+        case #selector(requestLLMResponse(_:)):
+            return llmPanel?.isResponding != true
+        case #selector(stopLLMResponse(_:)):
+            return llmPanel?.isResponding == true
+        default:
+            return true
+        }
     }
 
     @objc func textDidChange(_ notification: Notification) {
@@ -433,6 +589,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         defaults.set(textView.string, forKey: key)
+        saveLLMPanelState()
         defaults.synchronize()
     }
 

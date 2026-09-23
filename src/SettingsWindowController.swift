@@ -54,7 +54,7 @@ final class SettingsWindowController: NSWindowController {
         contentView.addSubview(slider)
         self.slider = slider
 
-        let hint = NSTextField(labelWithString: "Applies to the editor and the Markdown preview.")
+        let hint = NSTextField(labelWithString: "Applies to the editor, the preview and LLM answers.")
         hint.font = NSFont.systemFont(ofSize: 11)
         hint.textColor = .secondaryLabelColor
         hint.frame = NSRect(x: 20, y: 20, width: 320, height: 15)

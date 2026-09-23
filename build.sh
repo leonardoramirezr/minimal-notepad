@@ -16,7 +16,8 @@ xcrun swiftc \
     src/*.swift \
     -framework AppKit \
     -framework Foundation \
-    -framework CoreText
+    -framework CoreText \
+    -framework Security
 
 cp Info.plist "${APP_BUNDLE}/Contents/Info.plist"
 cp Resources/Fonts/*.ttf "${APP_BUNDLE}/Contents/Resources/Fonts/"
