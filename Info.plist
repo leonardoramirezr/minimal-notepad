@@ -16,5 +16,12 @@
     <string>1.0</string>
     <key>LSMinimumSystemVersion</key>
     <string>15.0</string>
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsLocalNetworking</key>
+        <true/>
+    </dict>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>Scratchpad sends your note to the LLM endpoint you set up, which may be a server on your local network.</string>
 </dict>
 </plist>
