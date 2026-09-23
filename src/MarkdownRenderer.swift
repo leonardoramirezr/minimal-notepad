@@ -89,6 +89,18 @@ enum MarkdownRenderer {
                 continue
             }
 
+            if i + 1 < lines.count, let alignments = tableAlignments(header: trimmed, delimiter: lines[i + 1]) {
+                flushParagraph()
+                var rows = [tableCells(trimmed)]
+                i += 2
+                while i < lines.count, lines[i].contains("|") {
+                    rows.append(tableCells(lines[i]))
+                    i += 1
+                }
+                appendTable(rows, alignments: alignments, to: result, baseSize: baseSize)
+                continue
+            }
+
             paragraphBuffer.append((indent: leadingSpaceCount(rawLine), text: trimmed))
             i += 1
         }
@@ -145,6 +157,57 @@ enum MarkdownRenderer {
             return nil
         }
         return (number, String(line[dotRange.upperBound...]))
+    }
+
+    /// The column alignments when `header` and `delimiter` start a GitHub-style table,
+    /// such as `| Name | Size |` followed by `| :--- | ---: |`.
+    private static func tableAlignments(header: String, delimiter: String) -> [NSTextAlignment]? {
+        guard header.contains("|"), delimiter.contains("|") else { return nil }
+        var alignments: [NSTextAlignment] = []
+        for cell in tableCells(delimiter) {
+            let dashes = cell.trimmingCharacters(in: CharacterSet(charactersIn: ":"))
+            guard !dashes.isEmpty, dashes.allSatisfy({ $0 == "-" }) else { return nil }
+            switch (cell.hasPrefix(":"), cell.hasSuffix(":")) {
+            case (true, true): alignments.append(.center)
+            case (false, true): alignments.append(.right)
+            case (true, false): alignments.append(.left)
+            case (false, false): alignments.append(.natural)
+            }
+        }
+        // As on GitHub, the header needs exactly one cell per column.
+        return tableCells(header).count == alignments.count ? alignments : nil
+    }
+
+    /// The cells of a table row. The outer pipes are optional, and `\|` is a pipe inside a cell.
+    private static func tableCells(_ line: String) -> [String] {
+        var row = line.trimmingCharacters(in: .whitespaces)
+        if row.hasPrefix("|") {
+            row.removeFirst()
+        }
+
+        var cells: [String] = []
+        var cell = ""
+        var escaping = false
+        for ch in row {
+            if escaping {
+                if ch != "|" { cell.append("\\") }
+                cell.append(ch)
+                escaping = false
+            } else if ch == "\\" {
+                escaping = true
+            } else if ch == "|" {
+                cells.append(cell)
+                cell = ""
+            } else {
+                cell.append(ch)
+            }
+        }
+        if escaping { cell.append("\\") }
+        // A closing pipe ends the last cell rather than starting an empty one.
+        if !cell.isEmpty || cells.isEmpty {
+            cells.append(cell)
+        }
+        return cells.map { $0.trimmingCharacters(in: .whitespaces) }
     }
 
     // MARK: - Block rendering
@@ -269,6 +332,55 @@ enum MarkdownRenderer {
             line.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: line.length))
             result.append(line)
             result.append(NSAttributedString(string: "\n"))
+        }
+        result.append(NSAttributedString(string: "\n"))
+    }
+
+    /// `<br>` is how GitHub-flavored Markdown breaks a line inside a table cell.
+    private static let lineBreakTagRegex = try? NSRegularExpression(pattern: "<br\\s*/?>", options: .caseInsensitive)
+
+    /// Lays the rows out as a real table: each cell is a paragraph whose text block is a
+    /// cell of an `NSTextTable`. Text views switch to TextKit 1 to draw those.
+    private static func appendTable(_ rows: [[String]], alignments: [NSTextAlignment], to result: NSMutableAttributedString, baseSize: CGFloat) {
+        let table = NSTextTable()
+        table.numberOfColumns = alignments.count
+        table.collapsesBorders = true
+        table.hidesEmptyCells = false
+
+        let font = PlexSerif.font(size: baseSize)
+        let headerFont = PlexSerif.font(size: baseSize, bold: true)
+        let borderColor = NSColor.textColor.withAlphaComponent(0.2)
+        let headerBackground = NSColor.textColor.withAlphaComponent(0.06)
+
+        for (row, cells) in rows.enumerated() {
+            // Missing cells are left empty and extra ones dropped, as on GitHub.
+            for (column, alignment) in alignments.enumerated() {
+                let block = NSTextTableBlock(table: table, startingRow: row, rowSpan: 1, startingColumn: column, columnSpan: 1)
+                block.setWidth(1, type: .absoluteValueType, for: .border)
+                block.setBorderColor(borderColor)
+                block.setWidth(baseSize * 0.3, type: .absoluteValueType, for: .padding)
+                block.setWidth(baseSize * 0.4, type: .absoluteValueType, for: .padding, edge: .minX)
+                block.setWidth(baseSize * 0.4, type: .absoluteValueType, for: .padding, edge: .maxX)
+                if row == 0 {
+                    block.backgroundColor = headerBackground
+                }
+
+                let style = NSMutableParagraphStyle()
+                style.textBlocks = [block]
+                style.alignment = alignment
+                style.lineSpacing = 2
+
+                var text = column < cells.count ? cells[column] : ""
+                if let regex = lineBreakTagRegex {
+                    let range = NSRange(location: 0, length: (text as NSString).length)
+                    text = regex.stringByReplacingMatches(in: text, range: range, withTemplate: "\u{2028}")
+                }
+                let cell = inlineAttributedString(text, font: row == 0 ? headerFont : font, color: .textColor)
+                // Gives empty cells the height of a line of text.
+                cell.append(NSAttributedString(string: "\n", attributes: [.font: font]))
+                cell.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: cell.length))
+                result.append(cell)
+            }
         }
         result.append(NSAttributedString(string: "\n"))
     }

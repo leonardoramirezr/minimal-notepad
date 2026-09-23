@@ -24,16 +24,18 @@ final class LLMRespondsView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     private let promptKey = "llmPrompt"
     private let endpointKey = "llmEndpoint"
     private let modelKey = "llmModel"
+    private let metaPromptKey = "llmMetaPrompt"
     private let responseKey = "llmResponse"
     private let responseDateKey = "llmResponseDate"
+    private let showsRawResponseKey = "llmShowsRawResponse"
     private let keychainService = "Scratchpad LLM Responds"
     private let keychainAccount = "API key"
 
     private let headerHeight: CGFloat = 32
     private let margin: CGFloat = 12
     private let spacing: CGFloat = 8
-    private let labelWidth: CGFloat = 56
     private let promptHeight: CGFloat = 72
+    private let metaPromptHeight: CGFloat = 56
 
     private var background: NSVisualEffectView!
     private var titleLabel: NSTextField!
@@ -41,11 +43,16 @@ final class LLMRespondsView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     private var endpointField: NSTextField!
     private var apiKeyField: NSSecureTextField!
     private var modelField: NSTextField!
+    private var metaPromptField: NSTextField!
     private var connectionRows: [(label: NSTextField, field: NSTextField)] = []
+    /// Wide enough for the longest connection label.
+    private var labelWidth: CGFloat = 0
     private var connectionHint: NSTextField!
     private var promptField: NSTextField!
     private var respondButton: NSButton!
     private var spinner: NSProgressIndicator!
+    private var rawButton: NSButton!
+    private var copyButton: NSButton!
     private var statusLabel: NSTextField!
     private var separator: NSBox!
     private var responseScrollView: NSScrollView!
@@ -56,9 +63,12 @@ final class LLMRespondsView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     private var storedAPIKey: String?
 
     private var responseText = ""
+    /// Shows the answer as the model wrote it, in a fixed-width font, instead of rendered.
+    private var showsRawResponse = false
     private var responseStarted = false
     private var responseTask: Task<Void, Never>?
     private var pendingRender: Task<Void, Never>?
+    private var copyConfirmation: Task<Void, Never>?
 
     override var isFlipped: Bool { true }
 
@@ -68,7 +78,9 @@ final class LLMRespondsView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         buildContent()
 
         responseText = defaults.string(forKey: responseKey) ?? ""
+        showsRawResponse = defaults.bool(forKey: showsRawResponseKey)
         renderResponse()
+        updateResponseButtons()
         if !responseText.isEmpty, let date = defaults.object(forKey: responseDateKey) as? Date {
             showStatus(answeredStatus(date))
         }
@@ -97,18 +109,22 @@ final class LLMRespondsView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         addSubview(title)
         self.titleLabel = title
 
-        let gear = NSButton(title: "", target: self, action: #selector(toggleConnection(_:)))
-        gear.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: "Connection settings")
-        gear.imagePosition = .imageOnly
-        gear.isBordered = false
-        gear.toolTip = "Endpoint, API key and model"
-        gear.sizeToFit()
-        addSubview(gear)
-        self.connectionButton = gear
+        connectionButton = addIconButton("gearshape", description: "LLM settings", action: #selector(toggleConnection(_:)))
+        connectionButton.toolTip = "Endpoint, API key, model and meta prompt"
 
         endpointField = addConnectionRow("Endpoint", field: NSTextField(), placeholder: "https://api.openai.com/v1")
         apiKeyField = addConnectionRow("API key", field: NSSecureTextField(), placeholder: "Optional for local servers")
         modelField = addConnectionRow("Model", field: NSTextField(), placeholder: "e.g. gpt-4o-mini")
+
+        let metaPrompt = addConnectionRow("Meta prompt", field: NSTextField(), placeholder: "Optional instructions for every answer")
+        metaPrompt.usesSingleLineMode = false
+        metaPrompt.cell?.wraps = true
+        metaPrompt.cell?.isScrollable = false
+        metaPrompt.cell?.truncatesLastVisibleLine = true
+        metaPrompt.frame.size.height = metaPromptHeight
+        metaPrompt.toolTip = "Sent with every request, as part of the system prompt. Return starts a new line."
+        self.metaPromptField = metaPrompt
+        labelWidth = connectionRows.map { $0.label.frame.width }.max() ?? 0
 
         let hint = NSTextField(wrappingLabelWithString: "Any OpenAI-compatible API. The key is stored in your Keychain.")
         hint.font = NSFont.systemFont(ofSize: 11)
@@ -133,7 +149,8 @@ final class LLMRespondsView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         // needs an explicit order. Hidden fields are skipped automatically.
         endpointField.nextKeyView = apiKeyField
         apiKeyField.nextKeyView = modelField
-        modelField.nextKeyView = prompt
+        modelField.nextKeyView = metaPromptField
+        metaPromptField.nextKeyView = prompt
         prompt.nextKeyView = endpointField
 
         // Sized for the longer of its two titles so it doesn't jump while responding.
@@ -154,6 +171,14 @@ final class LLMRespondsView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         spinner.sizeToFit()
         addSubview(spinner)
         self.spinner = spinner
+
+        rawButton = addIconButton(
+            "chevron.left.forwardslash.chevron.right",
+            description: "Raw response",
+            action: #selector(toggleRawResponse(_:))
+        )
+        copyButton = addIconButton("doc.on.doc", description: "Copy response", action: #selector(copyResponse(_:)))
+        copyButton.toolTip = "Copy the response as Markdown"
 
         let status = NSTextField(wrappingLabelWithString: "")
         status.font = NSFont.systemFont(ofSize: 11)
@@ -221,6 +246,17 @@ final class LLMRespondsView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         return field
     }
 
+    private func addIconButton(_ symbolName: String, description: String, action: Selector) -> NSButton {
+        let button = NSButton(title: "", target: self, action: action)
+        button.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: description)
+        button.imagePosition = .imageOnly
+        button.isBordered = false
+        button.contentTintColor = .secondaryLabelColor
+        button.sizeToFit()
+        addSubview(button)
+        return button
+    }
+
     override func resizeSubviews(withOldSize oldSize: NSSize) {
         layoutContent()
     }
@@ -242,11 +278,13 @@ final class LLMRespondsView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         if showsConnection {
             let fieldX = margin + labelWidth + 6
             let fieldWidth = max(width - margin - fieldX, 0)
+            // Labels line up with the first line of their field, which may have several.
+            let lineHeight = endpointField.frame.height
             for (label, field) in connectionRows {
                 field.frame = NSRect(x: fieldX, y: y, width: fieldWidth, height: field.frame.height)
                 label.frame = NSRect(
                     x: margin,
-                    y: y + (field.frame.height - label.frame.height) / 2,
+                    y: y + (lineHeight - label.frame.height) / 2,
                     width: labelWidth,
                     height: label.frame.height
                 )
@@ -264,6 +302,15 @@ final class LLMRespondsView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         spinner.frame.origin = NSPoint(
             x: respondButton.frame.maxX + spacing,
             y: y + (respondButton.frame.height - spinner.frame.height) / 2
+        )
+        // The buttons that act on the answer sit at the other end of the row.
+        copyButton.frame.origin = NSPoint(
+            x: width - margin - copyButton.frame.width,
+            y: y + (respondButton.frame.height - copyButton.frame.height) / 2
+        )
+        rawButton.frame.origin = NSPoint(
+            x: copyButton.frame.minX - spacing - rawButton.frame.width,
+            y: y + (respondButton.frame.height - rawButton.frame.height) / 2
         )
         y += respondButton.frame.height + 4
 
@@ -323,6 +370,7 @@ final class LLMRespondsView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         connectionLoaded = true
         endpointField.stringValue = defaults.string(forKey: endpointKey) ?? ""
         modelField.stringValue = defaults.string(forKey: modelKey) ?? ""
+        metaPromptField.stringValue = defaults.string(forKey: metaPromptKey) ?? ""
         apiKeyField.stringValue = apiKey
     }
 
@@ -340,6 +388,7 @@ final class LLMRespondsView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         guard connectionLoaded else { return }
         defaults.set(endpointField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: endpointKey)
         defaults.set(modelField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: modelKey)
+        defaults.set(metaPromptField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: metaPromptKey)
 
         let key = apiKeyField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         if key != storedAPIKey {
@@ -353,7 +402,8 @@ final class LLMRespondsView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         return LLMConfiguration(
             endpoint: defaults.string(forKey: endpointKey) ?? "",
             apiKey: apiKey,
-            model: defaults.string(forKey: modelKey) ?? ""
+            model: defaults.string(forKey: modelKey) ?? "",
+            metaPrompt: defaults.string(forKey: metaPromptKey) ?? ""
         )
     }
 
@@ -431,6 +481,7 @@ final class LLMRespondsView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         if !responseStarted {
             responseStarted = true
             renderResponse()
+            updateResponseButtons()
             responseTextView.scroll(.zero)
             return
         }
@@ -475,8 +526,47 @@ final class LLMRespondsView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
                 string: "Answers appear here. Ask again with ⌘↩ whenever the note changes.",
                 attributes: [.font: NSFont.systemFont(ofSize: 12), .foregroundColor: NSColor.tertiaryLabelColor]
             ))
+        } else if showsRawResponse {
+            storage.setAttributedString(NSAttributedString(
+                string: responseText,
+                attributes: [
+                    .font: NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular),
+                    .foregroundColor: NSColor.textColor
+                ]
+            ))
         } else {
             storage.setAttributedString(MarkdownRenderer.render(responseText, baseSize: fontSize))
+        }
+    }
+
+    /// The raw and copy buttons act on the answer, so they wait until there is one.
+    private func updateResponseButtons() {
+        rawButton.isEnabled = !responseText.isEmpty
+        rawButton.contentTintColor = showsRawResponse ? .controlAccentColor : .secondaryLabelColor
+        rawButton.toolTip = showsRawResponse ? "Show the formatted response" : "Show the raw response"
+        copyButton.isEnabled = !responseText.isEmpty
+    }
+
+    @objc private func toggleRawResponse(_ sender: Any?) {
+        showsRawResponse.toggle()
+        defaults.set(showsRawResponse, forKey: showsRawResponseKey)
+        updateResponseButtons()
+        renderResponse()
+    }
+
+    /// Copies the answer exactly as the model wrote it, which is Markdown.
+    @objc private func copyResponse(_ sender: Any?) {
+        guard !responseText.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(responseText, forType: .string)
+
+        // A checkmark confirms the copy for a moment.
+        copyButton.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: "Copied")
+        copyConfirmation?.cancel()
+        copyConfirmation = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1.5))
+            guard let self, !Task.isCancelled else { return }
+            self.copyButton.image = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: "Copy response")
         }
     }
 
@@ -503,11 +593,14 @@ final class LLMRespondsView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     }
 
     /// Return in the prompt asks; Shift-Return (or Option-Return) inserts a line break.
+    /// The meta prompt has nothing to send, so Return always inserts a line break there.
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
-        guard control === promptField, commandSelector == #selector(NSResponder.insertNewline(_:)) else {
+        guard control === promptField || control === metaPromptField,
+              commandSelector == #selector(NSResponder.insertNewline(_:))
+        else {
             return false
         }
-        if NSApp.currentEvent?.modifierFlags.contains(.shift) == true {
+        if control === metaPromptField || NSApp.currentEvent?.modifierFlags.contains(.shift) == true {
             textView.insertNewlineIgnoringFieldEditor(nil)
         } else {
             respond()
