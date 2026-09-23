@@ -1,10 +1,12 @@
 import Foundation
 
-/// Connection details for any server that implements OpenAI's Chat Completions API.
+/// Connection details for any server that implements OpenAI's Chat Completions API,
+/// and the user's meta prompt, which goes with every request.
 struct LLMConfiguration {
     var endpoint: String
     var apiKey: String
     var model: String
+    var metaPrompt: String
 }
 
 enum LLMError: LocalizedError {
@@ -39,6 +41,12 @@ enum LLMClient {
         in their message between <note> tags. Answer their request about that note, using \
         Markdown for formatting.
         """
+
+    /// The app's system prompt, followed by the user's meta prompt when there is one.
+    static func systemMessage(metaPrompt: String) -> String {
+        let metaPrompt = metaPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        return metaPrompt.isEmpty ? systemPrompt : systemPrompt + "\n\n" + metaPrompt
+    }
 
     /// Accepts either a base URL (`https://api.openai.com/v1`) or the full
     /// `…/chat/completions` URL.
@@ -80,7 +88,7 @@ enum LLMClient {
         let body = ChatRequest(
             model: model.isEmpty ? nil : model,
             messages: [
-                ChatMessage(role: "system", content: systemPrompt),
+                ChatMessage(role: "system", content: systemMessage(metaPrompt: configuration.metaPrompt)),
                 ChatMessage(role: "user", content: "<note>\n\(note)\n</note>\n\n\(prompt)"),
             ],
             stream: true

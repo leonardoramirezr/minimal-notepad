@@ -21,8 +21,8 @@ scratchpad.
   where you left it.
 - **Markdown preview** — flip the "Markdown" switch to render the text as
   formatted output (headings, bold/italic, inline code, code blocks,
-  blockquotes, ordered/unordered lists, links, and horizontal rules) using a
-  custom lightweight Markdown renderer, no third-party libraries.
+  blockquotes, ordered/unordered lists, links, tables and horizontal rules)
+  using a custom lightweight Markdown renderer, no third-party libraries.
 - **Centered / focus layout** — the "Center" switch constrains text to a
   fixed page width and centers it in the window, for a more comfortable
   reading and writing measure on wide screens.
@@ -52,8 +52,8 @@ for example *"What's still unresolved in these notes?"* or *"Summarize this in
 three bullet points"*.
 
 1. Open it with `View ▸ Show LLM Responds` (`⇧⌘L`).
-2. The first time, fill in the connection (the gear button in the panel's
-   header shows or hides it):
+2. The first time, fill in the settings (the gear button in the panel's
+   header shows or hides them):
    - **Endpoint** — the base URL of any OpenAI-compatible Chat Completions
      API, e.g. `https://api.openai.com/v1`, or a local server such as Ollama
      (`http://localhost:11434/v1`) or LM Studio (`http://localhost:1234/v1`).
@@ -62,15 +62,25 @@ three bullet points"*.
      that don't need one. It is stored in your login Keychain, not in the
      app's preferences.
    - **Model** — the model name the server expects.
+   - **Meta prompt** — optional instructions for every answer, such as
+     *"Answer in Spanish"* or *"Keep it short"*. They are added to the app's
+     own system prompt. `Return` starts a new line in this field.
 3. Write your prompt and press `Return` (`⇧↩` adds a line break).
 4. Keep writing. Whenever you want a fresh answer about the current text, press
    `⌘↩` (`View ▸ Get Response`) from anywhere, even while typing in the
    editor. `⌘.` stops an answer in progress.
 
-Each request contains only a short system prompt, your note and your prompt;
-there is no conversation history. Answers stream in and are rendered as
-Markdown. The prompt, the last answer and the connection settings are
-remembered between launches.
+Each request contains only a short system prompt (followed by your meta
+prompt, if you set one), your note and your prompt; there is no conversation
+history. Answers stream in and are rendered as Markdown, tables included.
+Two buttons at the right of **Get Response** act on the answer:
+
+- `</>` switches between the formatted answer and the raw one, exactly as the
+  model wrote it, in a fixed-width font.
+- The copy button puts the answer on the clipboard as Markdown.
+
+The prompt, the last answer, the raw or formatted view, the connection
+settings and the meta prompt are remembered between launches.
 
 Plain `http://` endpoints are only allowed for local servers (such as
 `localhost` or `.local` hosts); anything else must use `https://`.
