@@ -1,0 +1,40 @@
+# Builds Scratchpad on every push to main and publishes the result as a
+# GitHub release. Each commit gets its own release, tagged build-<short sha>.
+name: Release build
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build app
+        run: make build
+
+      - name: Package app
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/Scratchpad.app "Scratchpad-${SHORT_SHA}.zip"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          gh release create "build-${SHORT_SHA}" "Scratchpad-${SHORT_SHA}.zip" \
+            --target "$GITHUB_SHA" \
+            --title "Scratchpad build ${SHORT_SHA}" \
+            --notes "Built from commit ${GITHUB_SHA} on main.
+
+          The app is ad-hoc signed, not notarized. On first launch, right-click
+          Scratchpad.app and choose Open to get past Gatekeeper."
