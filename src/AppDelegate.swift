@@ -1,7 +1,38 @@
 import AppKit
 import Foundation
 
-class LineMovableTextView: NSTextView {
+class EditorTextView: NSTextView {
+    private var isPastingPlainText = false
+
+    /// Rich text (from a browser, Word, Google Docs, Pages, Notes…) is pasted as its Markdown.
+    override func paste(_ sender: Any?) {
+        guard !isPastingPlainText, isEditable, let markdown = RichTextPaste.markdown(from: .general) else {
+            super.paste(sender)
+            return
+        }
+        insertPastedText(markdown)
+    }
+
+    /// `Edit ▸ Paste as Plain Text` pastes the text without turning its formatting into Markdown.
+    override func pasteAsPlainText(_ sender: Any?) {
+        isPastingPlainText = true
+        defer { isPastingPlainText = false }
+        super.pasteAsPlainText(sender)
+    }
+
+    private func insertPastedText(_ text: String) {
+        let range = selectedRange()
+        breakUndoCoalescing()
+        guard let textStorage, shouldChangeText(in: range, replacementString: text) else { return }
+        textStorage.replaceCharacters(in: range, with: NSAttributedString(string: text, attributes: typingAttributes))
+        didChangeText()
+        undoManager?.setActionName("Paste")
+
+        let caret = NSRange(location: range.location + (text as NSString).length, length: 0)
+        setSelectedRange(caret)
+        scrollRangeToVisible(caret)
+    }
+
     override func keyDown(with event: NSEvent) {
         let modifiers = event.modifierFlags
         if modifiers.contains(.option), modifiers.isDisjoint(with: [.shift, .command, .control]),
@@ -208,6 +239,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSSplitViewDelegate, NSMenuI
         editMenu.addItem(withTitle: "Cut", action: Selector(("cut:")), keyEquivalent: "x")
         editMenu.addItem(withTitle: "Copy", action: Selector(("copy:")), keyEquivalent: "c")
         editMenu.addItem(withTitle: "Paste", action: Selector(("paste:")), keyEquivalent: "v")
+        let plainPasteItem = NSMenuItem(
+            title: "Paste as Plain Text",
+            action: Selector(("pasteAsPlainText:")),
+            keyEquivalent: "v"
+        )
+        plainPasteItem.keyEquivalentModifierMask = [.command, .option, .shift]
+        editMenu.addItem(plainPasteItem)
         editMenu.addItem(NSMenuItem.separator())
         editMenu.addItem(withTitle: "Select All", action: Selector(("selectAll:")), keyEquivalent: "a")
 
@@ -336,7 +374,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSSplitViewDelegate, NSMenuI
         scrollView.hasVerticalScroller = true
         scrollView.autoresizingMask = [.width, .height]
 
-        let textView = LineMovableTextView(frame: scrollView.bounds)
+        let textView = EditorTextView(frame: scrollView.bounds)
         textView.isRichText = false
         textView.font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
         textView.textContainerInset = editBaseInset
