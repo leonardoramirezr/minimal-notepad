@@ -23,6 +23,12 @@ scratchpad.
   formatted output (headings, bold/italic, inline code, code blocks,
   blockquotes, ordered/unordered lists, links, tables and horizontal rules)
   using a custom lightweight Markdown renderer, no third-party libraries.
+- **Paste rich text as Markdown** — paste from a web page, Google Docs, Word,
+  Pages, Notes or Mail and the formatting comes in as Markdown: headings,
+  bold, italic, strikethrough, inline code and code blocks, links, images,
+  nested and task lists, quotes, tables and horizontal rules. Text without any
+  formatting, and code copied from an editor or a terminal, is pasted as it is.
+  `Edit ▸ Paste as Plain Text` (`⌥⇧⌘V`) pastes without converting.
 - **Centered / focus layout** — the "Center" switch constrains text to a
   fixed page width and centers it in the window, for a more comfortable
   reading and writing measure on wide screens.
@@ -115,6 +121,10 @@ src/
   main.swift              # App entry point
   AppDelegate.swift        # Window, UI layout, and app lifecycle
   MarkdownRenderer.swift   # Custom Markdown → NSAttributedString renderer
+  RichTextPaste.swift      # Reads pasted rich text (HTML, web archives, RTF) as Markdown
+  HTMLParser.swift         # Forgiving HTML parser for pasteboard fragments
+  MarkdownConverter.swift  # HTML → Markdown translation
+  RichTextDocument.swift   # Rich text (RTF) paragraphs → HTML, inferring headings and code
   Fonts.swift              # Bundled font registration (IBM Plex Serif)
   SettingsWindowController.swift  # Settings window (font size slider)
   LLMRespondsView.swift    # LLM Responds side panel (prompt, answer, connection)
