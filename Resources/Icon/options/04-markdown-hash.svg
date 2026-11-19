@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+<title>Scratchpad · Markdown</title>
+<defs>
+<clipPath id="sq"><path d="M383.41 100 L640.59 100 C722.19 100 763 100 806.92 113.36 C854.88 130.82 893.18 169.12 910.64 217.08 C924 261 924 301.81 924 383.41 L924 640.59 C924 722.19 924 763 910.64 806.92 C893.18 854.88 854.88 893.18 806.92 910.64 C763 924 722.19 924 640.59 924 L383.41 924 C301.81 924 261 924 217.08 910.64 C169.12 893.18 130.82 854.88 113.36 806.92 C100 763 100 722.19 100 640.59 L100 383.41 C100 301.81 100 261 113.36 217.08 C130.82 169.12 169.12 130.82 217.08 113.36 C261 100 301.81 100 383.41 100 Z"/></clipPath>
+<filter id="iconShadow" x="-15%" y="-15%" width="130%" height="135%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="14"/><feOffset dy="12" result="o1"/><feFlood flood-color="#000" flood-opacity=".3"/><feComposite in2="o1" operator="in" result="s1"/><feGaussianBlur in="SourceAlpha" stdDeviation="2"/><feOffset dy="2" result="o2"/><feFlood flood-color="#000" flood-opacity=".22"/><feComposite in2="o2" operator="in" result="s2"/><feMerge><feMergeNode in="s1"/><feMergeNode in="s2"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<linearGradient id="rim" gradientUnits="userSpaceOnUse" x1="0" y1="100" x2="0" y2="924"><stop offset="0" stop-color="#fff" stop-opacity="0.6"/><stop offset="0.18" stop-color="#fff" stop-opacity="0"/><stop offset="0.82" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.22"/></linearGradient>
+<linearGradient id="bg4" gradientUnits="userSpaceOnUse" x1="160" y1="120" x2="860" y2="900"><stop offset="0" stop-color="#FF6E66"/><stop offset="0.48" stop-color="#E68FB0"/><stop offset="1" stop-color="#45CFC2"/></linearGradient>
+<radialGradient id="bg4hi" gradientUnits="userSpaceOnUse" cx="300" cy="180" r="600"><stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+<filter id="hashShadow" x="-30%" y="-30%" width="160%" height="170%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="20"/><feOffset dy="22" result="o"/><feFlood flood-color="#5A1F3A" flood-opacity="0.28"/><feComposite in2="o" operator="in" result="s"/><feMerge><feMergeNode in="s"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<linearGradient id="face" gradientUnits="userSpaceOnUse" x1="0" y1="262" x2="0" y2="762"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#EFEAF4"/></linearGradient>
+<linearGradient id="side" gradientUnits="userSpaceOnUse" x1="0" y1="262" x2="0" y2="782"><stop offset="0" stop-color="#E6DCEB"/><stop offset="1" stop-color="#C9B9D3"/></linearGradient>
+</defs>
+<path d="M383.41 100 L640.59 100 C722.19 100 763 100 806.92 113.36 C854.88 130.82 893.18 169.12 910.64 217.08 C924 261 924 301.81 924 383.41 L924 640.59 C924 722.19 924 763 910.64 806.92 C893.18 854.88 854.88 893.18 806.92 910.64 C763 924 722.19 924 640.59 924 L383.41 924 C301.81 924 261 924 217.08 910.64 C169.12 893.18 130.82 854.88 113.36 806.92 C100 763 100 722.19 100 640.59 L100 383.41 C100 301.81 100 261 113.36 217.08 C130.82 169.12 169.12 130.82 217.08 113.36 C261 100 301.81 100 383.41 100 Z" fill="url(#bg4)" filter="url(#iconShadow)"/>
+<g clip-path="url(#sq)">
+
+<rect x="100" y="100" width="824" height="824" fill="url(#bg4)"/>
+<rect x="100" y="100" width="824" height="824" fill="url(#bg4hi)"/>
+<g filter="url(#hashShadow)"><g transform="translate(512 512) skewX(-11) translate(-512 -512)">
+  <g fill="url(#side)" transform="translate(0 16)">
+  <rect x="372" y="262" width="92" height="500" rx="46"/>
+  <rect x="560" y="262" width="92" height="500" rx="46"/>
+  <rect x="262" y="372" width="500" height="92" rx="46"/>
+  <rect x="262" y="560" width="500" height="92" rx="46"/></g>
+  <g fill="url(#face)">
+  <rect x="372" y="262" width="92" height="500" rx="46"/>
+  <rect x="560" y="262" width="92" height="500" rx="46"/>
+  <rect x="262" y="372" width="500" height="92" rx="46"/>
+  <rect x="262" y="560" width="500" height="92" rx="46"/></g>
+</g></g>
+<path d="M383.41 100 L640.59 100 C722.19 100 763 100 806.92 113.36 C854.88 130.82 893.18 169.12 910.64 217.08 C924 261 924 301.81 924 383.41 L924 640.59 C924 722.19 924 763 910.64 806.92 C893.18 854.88 854.88 893.18 806.92 910.64 C763 924 722.19 924 640.59 924 L383.41 924 C301.81 924 261 924 217.08 910.64 C169.12 893.18 130.82 854.88 113.36 806.92 C100 763 100 722.19 100 640.59 L100 383.41 C100 301.81 100 261 113.36 217.08 C130.82 169.12 169.12 130.82 217.08 113.36 C261 100 301.81 100 383.41 100 Z" fill="none" stroke="url(#rim)" stroke-width="5"/>
+</g>
+</svg>
