@@ -34,12 +34,16 @@ scratchpad.
   reading and writing measure on wide screens.
 - **Move lines with the keyboard** — `⌥↑` / `⌥↓` moves the current line up
   or down, like most modern code editors.
-- **Bundled typography** — ships with IBM Plex Serif (regular, italic,
-  bold, bold italic) for Markdown preview rendering, registered at launch
-  so no system installation is required.
+- **Bundled typography** — ships with IBM Plex Serif and IBM Plex Sans
+  (regular, italic, bold, bold italic) for Markdown preview rendering,
+  registered at launch so no system installation is required.
 - **Adjustable font size** — `Scratchpad ▸ Settings…` (`⌘,`) opens a settings
   window with a slider that changes the text size (10–32 pt) live, for the
   editor, the Markdown preview and LLM answers; the choice is remembered
+  between launches.
+- **Serif or sans Markdown** — the same Settings window lets you choose
+  whether rendered Markdown (the preview and LLM answers) is set in IBM Plex
+  Serif or IBM Plex Sans. Serif is the default, and the choice is remembered
   between launches.
 - **LLM Responds panel** — `View ▸ Show LLM Responds` (`⇧⌘L`) opens a panel on
   the left where you write a prompt about your note. It isn't a chat: each
@@ -125,8 +129,8 @@ src/
   HTMLParser.swift         # Forgiving HTML parser for pasteboard fragments
   MarkdownConverter.swift  # HTML → Markdown translation
   RichTextDocument.swift   # Rich text (RTF) paragraphs → HTML, inferring headings and code
-  Fonts.swift              # Bundled font registration (IBM Plex Serif)
-  SettingsWindowController.swift  # Settings window (font size slider)
+  Fonts.swift              # Bundled typefaces (IBM Plex Serif / Sans)
+  SettingsWindowController.swift  # Settings window (font size, Markdown font)
   LLMRespondsView.swift    # LLM Responds side panel (prompt, answer, connection)
   LLMClient.swift          # OpenAI-compatible Chat Completions client (streaming)
   Keychain.swift           # Keychain storage for the API key

@@ -1,7 +1,7 @@
 import AppKit
 
 enum MarkdownRenderer {
-    static func render(_ markdown: String, baseSize: CGFloat = 15) -> NSAttributedString {
+    static func render(_ markdown: String, baseSize: CGFloat = 15, typeface: Typeface = .serif) -> NSAttributedString {
         let result = NSMutableAttributedString()
         let lines = markdown.components(separatedBy: "\n")
         var i = 0
@@ -11,7 +11,7 @@ enum MarkdownRenderer {
             guard !paragraphBuffer.isEmpty else { return }
             let lines = paragraphBuffer
             paragraphBuffer.removeAll()
-            appendParagraph(lines, to: result, baseSize: baseSize)
+            appendParagraph(lines, to: result, baseSize: baseSize, typeface: typeface)
         }
 
         while i < lines.count {
@@ -47,7 +47,7 @@ enum MarkdownRenderer {
             if let level = headingLevel(trimmed) {
                 flushParagraph()
                 let text = String(trimmed.drop(while: { $0 == "#" })).trimmingCharacters(in: .whitespaces)
-                appendHeading(text, level: level, to: result, baseSize: baseSize)
+                appendHeading(text, level: level, to: result, baseSize: baseSize, typeface: typeface)
                 i += 1
                 continue
             }
@@ -61,7 +61,7 @@ enum MarkdownRenderer {
                     quoteLines.append(String(t.dropFirst()).trimmingCharacters(in: .whitespaces))
                     i += 1
                 }
-                appendBlockquote(quoteLines.joined(separator: " "), to: result, baseSize: baseSize)
+                appendBlockquote(quoteLines.joined(separator: " "), to: result, baseSize: baseSize, typeface: typeface)
                 continue
             }
 
@@ -73,7 +73,7 @@ enum MarkdownRenderer {
                     items.append((indent: leadingSpaceCount(lines[i]), text: item))
                     i += 1
                 }
-                appendUnorderedList(items, to: result, baseSize: baseSize)
+                appendUnorderedList(items, to: result, baseSize: baseSize, typeface: typeface)
                 continue
             }
 
@@ -85,7 +85,7 @@ enum MarkdownRenderer {
                     items.append((indent: leadingSpaceCount(lines[i]), number: item.0, text: item.1))
                     i += 1
                 }
-                appendOrderedList(items, to: result, baseSize: baseSize)
+                appendOrderedList(items, to: result, baseSize: baseSize, typeface: typeface)
                 continue
             }
 
@@ -97,7 +97,7 @@ enum MarkdownRenderer {
                     rows.append(tableCells(lines[i]))
                     i += 1
                 }
-                appendTable(rows, alignments: alignments, to: result, baseSize: baseSize)
+                appendTable(rows, alignments: alignments, to: result, baseSize: baseSize, typeface: typeface)
                 continue
             }
 
@@ -212,8 +212,8 @@ enum MarkdownRenderer {
 
     // MARK: - Block rendering
 
-    private static func appendParagraph(_ lines: [(indent: Int, text: String)], to result: NSMutableAttributedString, baseSize: CGFloat) {
-        let font = PlexSerif.font(size: baseSize)
+    private static func appendParagraph(_ lines: [(indent: Int, text: String)], to result: NSMutableAttributedString, baseSize: CGFloat, typeface: Typeface) {
+        let font = typeface.font(size: baseSize)
         for (idx, entry) in lines.enumerated() {
             let extra = CGFloat(entry.indent) * 7
             let style = NSMutableParagraphStyle()
@@ -224,38 +224,38 @@ enum MarkdownRenderer {
                 style.paragraphSpacing = baseSize * 0.9
             }
 
-            let lineAttr = inlineAttributedString(entry.text, font: font, color: .textColor)
+            let lineAttr = inlineAttributedString(entry.text, font: font, typeface: typeface, color: .textColor)
             lineAttr.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: lineAttr.length))
             result.append(lineAttr)
             result.append(NSAttributedString(string: "\n"))
         }
     }
 
-    private static func appendHeading(_ text: String, level: Int, to result: NSMutableAttributedString, baseSize: CGFloat) {
+    private static func appendHeading(_ text: String, level: Int, to result: NSMutableAttributedString, baseSize: CGFloat, typeface: Typeface) {
         let sizes: [Int: CGFloat] = [1: 28, 2: 24, 3: 20, 4: 17, 5: 15, 6: 14]
         // Headings scale with the configured body size (15 is the reference).
         let size = (sizes[level] ?? baseSize) * (baseSize / 15)
-        let font = PlexSerif.font(size: size, bold: true)
+        let font = typeface.font(size: size, bold: true)
 
         let style = NSMutableParagraphStyle()
         style.paragraphSpacingBefore = level == 1 ? 4 : baseSize * 0.8
         style.paragraphSpacing = baseSize * 0.5
 
-        let attr = inlineAttributedString(text, font: font, color: .textColor)
+        let attr = inlineAttributedString(text, font: font, typeface: typeface, color: .textColor)
         attr.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: attr.length))
         result.append(attr)
         result.append(NSAttributedString(string: "\n"))
     }
 
-    private static func appendBlockquote(_ text: String, to result: NSMutableAttributedString, baseSize: CGFloat) {
-        let font = PlexSerif.font(size: baseSize, italic: true)
+    private static func appendBlockquote(_ text: String, to result: NSMutableAttributedString, baseSize: CGFloat, typeface: Typeface) {
+        let font = typeface.font(size: baseSize, italic: true)
         let style = NSMutableParagraphStyle()
         style.headIndent = 20
         style.firstLineHeadIndent = 20
         style.paragraphSpacingBefore = baseSize * 0.4
         style.paragraphSpacing = baseSize * 0.8
 
-        let attr = inlineAttributedString(text, font: font, color: .secondaryLabelColor)
+        let attr = inlineAttributedString(text, font: font, typeface: typeface, color: .secondaryLabelColor)
         attr.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: attr.length))
         result.append(attr)
         result.append(NSAttributedString(string: "\n"))
@@ -294,8 +294,8 @@ enum MarkdownRenderer {
         result.append(line)
     }
 
-    private static func appendUnorderedList(_ items: [(indent: Int, text: String)], to result: NSMutableAttributedString, baseSize: CGFloat) {
-        let font = PlexSerif.font(size: baseSize)
+    private static func appendUnorderedList(_ items: [(indent: Int, text: String)], to result: NSMutableAttributedString, baseSize: CGFloat, typeface: Typeface) {
+        let font = typeface.font(size: baseSize)
         for (indent, item) in items {
             let extra = CGFloat(indent) * 7
             let style = NSMutableParagraphStyle()
@@ -307,7 +307,7 @@ enum MarkdownRenderer {
                 string: "\u{2022}  ",
                 attributes: [.font: font, .foregroundColor: NSColor.textColor]
             )
-            line.append(inlineAttributedString(item, font: font, color: .textColor))
+            line.append(inlineAttributedString(item, font: font, typeface: typeface, color: .textColor))
             line.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: line.length))
             result.append(line)
             result.append(NSAttributedString(string: "\n"))
@@ -315,8 +315,8 @@ enum MarkdownRenderer {
         result.append(NSAttributedString(string: "\n"))
     }
 
-    private static func appendOrderedList(_ items: [(indent: Int, number: Int, text: String)], to result: NSMutableAttributedString, baseSize: CGFloat) {
-        let font = PlexSerif.font(size: baseSize)
+    private static func appendOrderedList(_ items: [(indent: Int, number: Int, text: String)], to result: NSMutableAttributedString, baseSize: CGFloat, typeface: Typeface) {
+        let font = typeface.font(size: baseSize)
         for (indent, number, text) in items {
             let extra = CGFloat(indent) * 7
             let style = NSMutableParagraphStyle()
@@ -328,7 +328,7 @@ enum MarkdownRenderer {
                 string: "\(number).  ",
                 attributes: [.font: font, .foregroundColor: NSColor.textColor]
             )
-            line.append(inlineAttributedString(text, font: font, color: .textColor))
+            line.append(inlineAttributedString(text, font: font, typeface: typeface, color: .textColor))
             line.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: line.length))
             result.append(line)
             result.append(NSAttributedString(string: "\n"))
@@ -341,14 +341,14 @@ enum MarkdownRenderer {
 
     /// Lays the rows out as a real table: each cell is a paragraph whose text block is a
     /// cell of an `NSTextTable`. Text views switch to TextKit 1 to draw those.
-    private static func appendTable(_ rows: [[String]], alignments: [NSTextAlignment], to result: NSMutableAttributedString, baseSize: CGFloat) {
+    private static func appendTable(_ rows: [[String]], alignments: [NSTextAlignment], to result: NSMutableAttributedString, baseSize: CGFloat, typeface: Typeface) {
         let table = NSTextTable()
         table.numberOfColumns = alignments.count
         table.collapsesBorders = true
         table.hidesEmptyCells = false
 
-        let font = PlexSerif.font(size: baseSize)
-        let headerFont = PlexSerif.font(size: baseSize, bold: true)
+        let font = typeface.font(size: baseSize)
+        let headerFont = typeface.font(size: baseSize, bold: true)
         let borderColor = NSColor.textColor.withAlphaComponent(0.2)
         let headerBackground = NSColor.textColor.withAlphaComponent(0.06)
 
@@ -375,7 +375,7 @@ enum MarkdownRenderer {
                     let range = NSRange(location: 0, length: (text as NSString).length)
                     text = regex.stringByReplacingMatches(in: text, range: range, withTemplate: "\u{2028}")
                 }
-                let cell = inlineAttributedString(text, font: row == 0 ? headerFont : font, color: .textColor)
+                let cell = inlineAttributedString(text, font: row == 0 ? headerFont : font, typeface: typeface, color: .textColor)
                 // Gives empty cells the height of a line of text.
                 cell.append(NSAttributedString(string: "\n", attributes: [.font: font]))
                 cell.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: cell.length))
@@ -397,7 +397,7 @@ enum MarkdownRenderer {
 
     private static let linkPartsRegex = try? NSRegularExpression(pattern: "^\\[(.*)\\]\\((.*)\\)$")
 
-    private static func inlineAttributedString(_ text: String, font: NSFont, color: NSColor) -> NSMutableAttributedString {
+    private static func inlineAttributedString(_ text: String, font: NSFont, typeface: Typeface, color: NSColor) -> NSMutableAttributedString {
         let result = NSMutableAttributedString()
         guard let regex = inlineRegex else {
             return NSMutableAttributedString(string: text, attributes: [.font: font, .foregroundColor: color])
@@ -429,19 +429,19 @@ enum MarkdownRenderer {
             } else if let r = Range(match.range(withName: "boldItalic"), in: text) {
                 let content = String(text[r]).trimmingCharacters(in: CharacterSet(charactersIn: "*"))
                 result.append(NSAttributedString(string: content, attributes: [
-                    .font: PlexSerif.font(size: font.pointSize, bold: true, italic: true),
+                    .font: typeface.font(size: font.pointSize, bold: true, italic: true),
                     .foregroundColor: color
                 ]))
             } else if let r = Range(match.range(withName: "bold"), in: text) {
                 let content = String(String(text[r]).dropFirst(2).dropLast(2))
                 result.append(NSAttributedString(string: content, attributes: [
-                    .font: PlexSerif.font(size: font.pointSize, bold: true),
+                    .font: typeface.font(size: font.pointSize, bold: true),
                     .foregroundColor: color
                 ]))
             } else if let r = Range(match.range(withName: "italic"), in: text) {
                 let content = String(String(text[r]).dropFirst(1).dropLast(1))
                 result.append(NSAttributedString(string: content, attributes: [
-                    .font: PlexSerif.font(size: font.pointSize, italic: true),
+                    .font: typeface.font(size: font.pointSize, italic: true),
                     .foregroundColor: color
                 ]))
             } else if let r = Range(match.range(withName: "link"), in: text) {

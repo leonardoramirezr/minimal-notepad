@@ -18,6 +18,11 @@ final class LLMRespondsView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         didSet { renderResponse() }
     }
 
+    /// Typeface of the rendered answer, the same as the Markdown preview's.
+    var typeface: Typeface {
+        didSet { renderResponse() }
+    }
+
     private(set) var isResponding = false
 
     private let defaults = UserDefaults.standard
@@ -72,8 +77,9 @@ final class LLMRespondsView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
 
     override var isFlipped: Bool { true }
 
-    init(fontSize: CGFloat) {
+    init(fontSize: CGFloat, typeface: Typeface) {
         self.fontSize = fontSize
+        self.typeface = typeface
         super.init(frame: NSRect(x: 0, y: 0, width: Self.defaultWidth, height: 480))
         buildContent()
 
@@ -535,7 +541,7 @@ final class LLMRespondsView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
                 ]
             ))
         } else {
-            storage.setAttributedString(MarkdownRenderer.render(responseText, baseSize: fontSize))
+            storage.setAttributedString(MarkdownRenderer.render(responseText, baseSize: fontSize, typeface: typeface))
         }
     }
 
