@@ -1,19 +1,45 @@
 import AppKit
 import CoreText
 
-enum PlexSerif {
-    static func font(size: CGFloat, bold: Bool = false, italic: Bool = false) -> NSFont {
-        let name: String
-        switch (bold, italic) {
-        case (true, true): name = "IBMPlexSerif-BoldItalic"
-        case (true, false): name = "IBMPlexSerif-Bold"
-        case (false, true): name = "IBMPlexSerif-Italic"
-        case (false, false): name = "IBMPlexSerif-Regular"
+/// The bundled typeface the Markdown preview and LLM answers are set in.
+enum Typeface: String, CaseIterable {
+    case serif
+    case sans
+
+    var displayName: String {
+        switch self {
+        case .serif: return "IBM Plex Serif"
+        case .sans: return "IBM Plex Sans"
         }
-        if let font = NSFont(name: name, size: size) {
+    }
+
+    func font(size: CGFloat, bold: Bool = false, italic: Bool = false) -> NSFont {
+        if let font = NSFont(name: postScriptName(bold: bold, italic: italic), size: size) {
             return font
         }
-        return NSFont(name: "Times New Roman", size: size) ?? NSFont.systemFont(ofSize: size)
+        switch self {
+        case .serif:
+            return NSFont(name: "Times New Roman", size: size) ?? NSFont.systemFont(ofSize: size)
+        case .sans:
+            let base = NSFont.systemFont(ofSize: size, weight: bold ? .bold : .regular)
+            guard italic else { return base }
+            return NSFontManager.shared.convert(base, toHaveTrait: .italicFontMask)
+        }
+    }
+
+    private func postScriptName(bold: Bool, italic: Bool) -> String {
+        let family: String
+        switch self {
+        case .serif: family = "IBMPlexSerif"
+        case .sans: family = "IBMPlexSans"
+        }
+        switch (bold, italic) {
+        case (true, true): return "\(family)-BoldItalic"
+        case (true, false): return "\(family)-Bold"
+        case (false, true): return "\(family)-Italic"
+        // IBM Plex Sans names its regular face without a style suffix.
+        case (false, false): return self == .sans ? family : "\(family)-Regular"
+        }
     }
 }
 

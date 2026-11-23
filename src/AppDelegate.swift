@@ -144,6 +144,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSSplitViewDelegate, NSMenuI
 
     let fontSizeKey = "editorFontSize"
     var fontSize = SettingsWindowController.defaultFontSize
+    let typefaceKey = "markdownTypeface"
+    var typeface: Typeface = .serif
     var settingsWindowController: SettingsWindowController?
 
     /// The Markdown preview reads one point larger than the editor,
@@ -153,6 +155,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSSplitViewDelegate, NSMenuI
     func applicationDidFinishLaunching(_ notification: Notification) {
         registerBundledFonts()
         fontSize = storedFontSize()
+        typeface = defaults.string(forKey: typefaceKey).flatMap(Typeface.init(rawValue:)) ?? .serif
 
         let windowWidth: CGFloat = 600
         let windowHeight: CGFloat = 432
@@ -428,9 +431,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSSplitViewDelegate, NSMenuI
 
     @objc func toggleMarkdownPreview(_ sender: NSSwitch) {
         if sender.state == .on {
-            previewTextView.textStorage?.setAttributedString(
-                MarkdownRenderer.render(textView.string, baseSize: previewBaseSize)
-            )
+            renderPreview()
             editScrollView.removeFromSuperview()
             previewScrollView.frame = bodyContainer.bounds
             bodyContainer.addSubview(previewScrollView)
@@ -476,14 +477,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSSplitViewDelegate, NSMenuI
         if let existing = settingsWindowController {
             controller = existing
         } else {
-            controller = SettingsWindowController(fontSize: fontSize)
+            controller = SettingsWindowController(fontSize: fontSize, typeface: typeface)
             controller.onFontSizeChange = { [weak self] size in
                 self?.applyFontSize(size)
+            }
+            controller.onTypefaceChange = { [weak self] typeface in
+                self?.applyTypeface(typeface)
             }
             settingsWindowController = controller
         }
 
         controller.showFontSize(fontSize)
+        controller.showTypeface(typeface)
         if controller.window?.isVisible != true {
             controller.window?.center()
         }
@@ -504,11 +509,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSSplitViewDelegate, NSMenuI
 
         textView.font = NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
         if markdownSwitch.state == .on {
-            previewTextView.textStorage?.setAttributedString(
-                MarkdownRenderer.render(textView.string, baseSize: previewBaseSize)
-            )
+            renderPreview()
         }
         llmPanel?.fontSize = size
+    }
+
+    private func applyTypeface(_ newTypeface: Typeface) {
+        guard newTypeface != typeface else { return }
+        typeface = newTypeface
+        defaults.set(newTypeface.rawValue, forKey: typefaceKey)
+
+        if markdownSwitch.state == .on {
+            renderPreview()
+        }
+        llmPanel?.typeface = newTypeface
+    }
+
+    private func renderPreview() {
+        previewTextView.textStorage?.setAttributedString(
+            MarkdownRenderer.render(textView.string, baseSize: previewBaseSize, typeface: typeface)
+        )
     }
 
     // MARK: - LLM Responds
@@ -558,7 +578,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSSplitViewDelegate, NSMenuI
     }
 
     private func makeLLMPanel() -> LLMRespondsView {
-        let panel = LLMRespondsView(fontSize: fontSize)
+        let panel = LLMRespondsView(fontSize: fontSize, typeface: typeface)
         panel.noteProvider = { [weak self] in
             self?.textView.string ?? ""
         }
